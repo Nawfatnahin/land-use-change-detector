@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Use Change Detector</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Video -->
+    <video autoplay loop muted playsinline id="bg-video">
+        <source src="BG1.mp4" type="video/mp4">
+    </video>
+
+    <!-- Top Navigation (PowerGlobal Style) -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <span class="logo">LANDSAT.DETECT&reg;</span>
+        </div>
+        <div class="nav-center">
+            <!-- Reserved for potential future centered links -->
+        </div>
+        <div class="nav-right">
+            <button class="nav-btn btn-yellow" onclick="document.getElementById('map-card').scrollIntoView({behavior: 'smooth'})">Analyze Now</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-section">
+        <h1 class="hero-title">Track Land Use Change from Space</h1>
+        <p class="hero-subtitle">
+            Transform your understanding of the earth's surface and monitor environmental shifts instantly.
+            Draw a region, pick dates, and calculate precise spectral index changes.
+        </p>
+    </header>
+
+    <!-- Map & Controls Section -->
+    <section class="app-section">
+        <div class="card" id="map-card">
+            <div class="card-header">
+                <span class="card-title">Analysis Interface</span>
+                <button id="btn-clear" class="btn-clear" style="display:none;">&#10005; Clear All</button>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="layer-control" id="layer-control" style="display: none;">
+                    <label><input type="radio" name="layer" value="change" checked> Change Map</label>
+                    <label><input type="radio" name="layer" value="after"> After Image</label>
+                    <label><input type="radio" name="layer" value="before"> Before Image</label>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-group">
+                    <label>Sensor</label>
+                    <select id="sensor">
+                        <option value="Sentinel-2">Sentinel-2 (10m)</option>
+                        <option value="Landsat 8/9">Landsat 8/9 (30m)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group time-group">
+                    <label>Time Period</label>
+                    <div class="date-row">
+                        <input type="date" id="start-date" value="2022-01-01">
+                        <span class="date-sep">&rarr;</span>
+                        <input type="date" id="end-date" value="2024-01-01">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Cloud % (<span id="cloud-val">30</span>%)</label>
+                    <input type="range" id="cloud-pct" min="0" max="100" value="30">
+                </div>
+
+                <div class="control-group">
+                    <label>Index</label>
+                    <select id="index-name">
+                        <option value="NDVI">NDVI</option>
+                        <option value="NDBI">NDBI</option>
+                        <option value="MNDWI">MNDWI</option>
+                        <option value="NDWI">NDWI</option>
+                        <option value="EVI">EVI</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Threshold (<span id="thresh-val">10</span>%)</label>
+                    <input type="range" id="threshold" min="1" max="50" value="10">
+                </div>
+
+                <div class="control-group">
+                    <label>Unit</label>
+                    <select id="area-unit">
+                        <option value="ha">Hectares</option>
+                        <option value="km2">Sq. km</option>
+                        <option value="acres">Acres</option>
+                        <option value="m2">Sq. m</option>
+                    </select>
+                </div>
+
+                <div class="control-action">
+                    <div class="info-btn-wrap">
+                        <button id="btn-analyze" class="btn-yellow-large">RUN ANALYSIS</button>
+                        <button id="btn-info" class="info-btn" aria-label="Parameter Guide">ⓘ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="results-section" style="display: none;">
+        <div class="results-container">
+            <h2 class="section-heading">Analysis Overview</h2>
+            <p class="section-subheading">Land cover change computed via Google Earth Engine spectral index differencing.</p>
+            
+            <div class="metric-grid">
+                <div class="metric-cell">
+                    <div class="readout"><span id="metric-total">0</span><span class="readout-unit" id="unit-total">ha</span></div>
+                    <div class="readout-label">TOTAL AREA</div>
+                </div>
+                <div class="metric-cell">
+                    <div class="readout"><span id="metric-changed">0</span><span class="readout-unit" id="unit-changed">ha</span></div>
+                    <div class="readout-label">CHANGED AREA</div>
+                </div>
+                <div class="metric-cell">
+                    <div class="readout"><span id="metric-rate">0.0</span><span class="readout-unit">%</span></div>
+                    <div class="readout-label">CHANGE RATE</div>
+                </div>
+                <div class="metric-cell">
+                    <div class="readout"><span id="metric-pixels">0</span><span class="readout-unit">px</span></div>
+                    <div class="readout-label">PIXELS</div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-box" id="chart-pie"></div>
+                <div class="chart-box" id="chart-hist"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Information Section (Bottom) -->
+    <section class="info-section">
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>How to use</h3>
+                <ol>
+                    <li>Use the polygon tool in the top-left of the map to draw your region of interest.</li>
+                    <li>Adjust the sensor, time period, and acceptable cloud cover.</li>
+                    <li>Select an index (like NDVI for vegetation) and a change threshold.</li>
+                    <li>Click Run Analysis to fetch tiles directly from Google Earth Engine.</li>
+                </ol>
+            </div>
+            
+            <div class="info-card">
+                <h3>Why use this</h3>
+                <p>
+                    Understanding environmental shifts at scale is critical for sustainability. 
+                    Use this tool to track <strong>deforestation</strong> in the Amazon, monitor 
+                    <strong>urban sprawl</strong> in rapidly developing cities, or observe the 
+                    shrinking of lakes due to <strong>severe drought</strong>.
+                </p>
+            </div>
+            
+            <div class="info-card">
+                <h3>Data Sources</h3>
+                <ul class="source-list">
+                    <li><strong>Google Earth Engine:</strong> Cloud computing platform for planetary-scale geospatial analysis.</li>
+                    <li><strong>Sentinel-2:</strong> Copernicus program high-resolution multispectral imaging mission (10m).</li>
+                    <li><strong>Landsat 8/9:</strong> USGS / NASA Earth observation satellite program (30m).</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-content">
+            <span class="logo">LANDSAT.DETECT&reg;</span>
+            <span class="copyright">&copy; 2026 All Rights Reserved.</span>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="app.js"></script>
+    <!-- Guide Modal (body-level — never clipped by overflow:hidden parents) -->
+    <div id="guide-overlay">
+        <div id="guide-modal">
+            <button id="guide-modal-close" aria-label="Close">&times;</button>
+            <h4>Parameter Guide</h4>
+            <dl>
+                <dt>Sensor</dt>
+                <dd>Sentinel-2 (10&thinsp;m) offers high spatial detail. Landsat&nbsp;8/9 (30&thinsp;m) spans a longer historical archive, dating back to 1972.</dd>
+                <dt>Time Period</dt>
+                <dd>Select two dates to compare. A greater temporal gap will surface more significant land-cover transitions.</dd>
+                <dt>Cloud Cover</dt>
+                <dd>Maximum allowable cloud fraction per scene. A lower value yields cleaner composites but may reduce scene availability in cloudy regions.</dd>
+                <dt>Index</dt>
+                <dd>NDVI&thinsp;&mdash;&thinsp;vegetation density. NDBI&thinsp;&mdash;&thinsp;built-up surfaces. MNDWI&thinsp;/&thinsp;NDWI&thinsp;&mdash;&thinsp;open water. EVI&thinsp;&mdash;&thinsp;enhanced vegetation with soil correction.</dd>
+                <dt>Threshold</dt>
+                <dd>Minimum index delta required to classify a pixel as &ldquo;changed.&rdquo; A higher value admits only substantial transitions, suppressing noise.</dd>
+            </dl>
+        </div>
+    </div>
+
+</body>
+</html>
