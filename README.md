@@ -26,4 +26,4 @@ Google Earth Engine provides the computational power and data archive required f
 
 ---
 
-> *Note: This application, including UI design, mapping logic, and data integration, was developed using modern AI-assisted workflows, with custom data integration, visualization design, and project direction by the author.*
+## Note: This application, including UI design, mapping logic and data integration was developed using modern AI-assisted workflows with custom data integration, visualization design and project direction by the author.
