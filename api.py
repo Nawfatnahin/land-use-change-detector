@@ -13,6 +13,9 @@ import ee_logic
 # ─── Load Secrets & Init Earth Engine ─────────────────────────────────────────
 try:
     secrets_path = os.path.join(os.path.dirname(__file__), ".streamlit", "secrets.toml")
+    if not os.path.exists(secrets_path):
+        secrets_path = "/etc/secrets/secrets.toml"
+        
     with open(secrets_path, "rb") as f:
         secrets = tomllib.load(f)
     ee_logic.initialize_ee(secrets)
