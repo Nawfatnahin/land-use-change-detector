@@ -23,3 +23,7 @@ The application relies on data from Google Earth Engine. It specifically utilize
 
 ## How the sources have been used
 Google Earth Engine provides the computational power and data archive required for the analysis. The application requests satellite imagery for the selected dates and region. It then applies spectral indices to the images and calculates the difference between the time periods. This difference highlights areas where significant land use change has occurred.
+
+---
+
+> *Note: This application, including UI design, mapping logic, and data integration, was developed using modern AI-assisted workflows, with custom data integration, visualization design, and project direction by the author.*
